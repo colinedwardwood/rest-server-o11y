@@ -1,0 +1,65 @@
+[
+  {
+    "name": "Backup Freshness",
+    "description": "At least one backup completes within every 25-hour window. Measures whether the most recent snapshot across all clients is less than 25 hours old.",
+    "query": {
+      "type": "freeform",
+      "freeform": {
+        "query": "(time() - max(restic_snapshots_group_latest_timestamp)) < 90000"
+      }
+    },
+    "objectives": [
+      {
+        "value": 0.99,
+        "window": "28d"
+      }
+    ],
+    "labels": [
+      { "key": "service", "value": "backup-server" },
+      { "key": "team", "value": "homelab" },
+      { "key": "component", "value": "restic" }
+    ]
+  },
+  {
+    "name": "REST Server Availability",
+    "description": "The rest-server process is up and responding to Prometheus scrapes. Measures whether backup clients can reach the server to write data.",
+    "query": {
+      "type": "freeform",
+      "freeform": {
+        "query": "up{job=\"custom/rest_server\"}"
+      }
+    },
+    "objectives": [
+      {
+        "value": 0.995,
+        "window": "28d"
+      }
+    ],
+    "labels": [
+      { "key": "service", "value": "backup-server" },
+      { "key": "team", "value": "homelab" },
+      { "key": "component", "value": "rest-server" }
+    ]
+  },
+  {
+    "name": "Backup Drive Capacity",
+    "description": "The backup drive has more than 10% free space. Measures whether there is sufficient room for new backups to land.",
+    "query": {
+      "type": "freeform",
+      "freeform": {
+        "query": "(node_filesystem_avail_bytes{mountpoint=\"/backups\"} / node_filesystem_size_bytes{mountpoint=\"/backups\"}) > 0.1"
+      }
+    },
+    "objectives": [
+      {
+        "value": 0.99,
+        "window": "28d"
+      }
+    ],
+    "labels": [
+      { "key": "service", "value": "backup-server" },
+      { "key": "team", "value": "homelab" },
+      { "key": "component", "value": "storage" }
+    ]
+  }
+]
