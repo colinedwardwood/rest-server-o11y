@@ -1,0 +1,4 @@
+.env
+*.retry
+.ansible_cache/
+.vault_password
