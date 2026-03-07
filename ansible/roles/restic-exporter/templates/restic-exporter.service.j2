@@ -1,0 +1,39 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Prometheus exporter for Restic repositories
+Documentation=https://github.com/ngosang/restic-exporter
+After=network-online.target
+Wants=network-online.target
+ConditionPathIsMountPoint={{ restic_exporter_mount_point }}
+
+[Service]
+Type=simple
+User={{ restic_exporter_user }}
+Group={{ restic_exporter_group }}
+
+EnvironmentFile=-{{ restic_exporter_env_file }}
+
+StateDirectory=restic-exporter
+WorkingDirectory=/var/lib/restic-exporter
+
+ExecStart=/usr/local/bin/restic-exporter-run
+
+Restart=on-failure
+RestartSec=2
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RemoveIPC=true
+SystemCallArchitectures=native
+ReadWritePaths=/var/lib/restic-exporter
+
+[Install]
+WantedBy=multi-user.target

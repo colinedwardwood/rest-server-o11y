@@ -1,0 +1,28 @@
+---
+# Upstream restic-exporter repository
+restic_exporter_repo_url: "https://github.com/ngosang/restic-exporter.git"
+restic_exporter_ref: ""
+restic_exporter_project_dir: "/opt/restic-exporter"
+
+# Prometheus metrics port
+restic_exporter_port: 8001
+
+# Service user/group
+restic_exporter_user: "restic-exporter"
+restic_exporter_group: "restic-exporter"
+
+# Config paths
+restic_exporter_config_dir: "/etc/restic-exporter"
+restic_exporter_env_file: "{{ restic_exporter_config_dir }}/restic-exporter.env"
+
+# Restic repository path — local filesystem access avoids needing REST auth.
+# For --private-repos setups, point this at the specific user directory
+# (e.g. /backups/myuser).
+restic_exporter_repository: "/backups"
+
+# Restic repository encryption password — store in ansible-vault:
+#   ansible-vault encrypt_string 'secret' --name vault_restic_password
+restic_exporter_password: "{{ vault_restic_password | default('') }}"
+
+# Mount point the exporter depends on (used in ConditionPathIsMountPoint)
+restic_exporter_mount_point: "/backups"

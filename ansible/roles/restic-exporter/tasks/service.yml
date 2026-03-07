@@ -1,0 +1,7 @@
+---
+- name: Enable and start restic-exporter service
+  ansible.builtin.systemd:
+    name: restic-exporter
+    enabled: true
+    state: started
+    daemon_reload: true

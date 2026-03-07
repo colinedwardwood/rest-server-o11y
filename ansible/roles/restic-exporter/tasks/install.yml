@@ -1,0 +1,61 @@
+---
+- name: Install restic CLI
+  ansible.builtin.apt:
+    name: restic
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install Python build dependencies
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-venv
+      - git
+    state: present
+
+- name: Ensure project directory exists
+  ansible.builtin.file:
+    path: "{{ restic_exporter_project_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Clone or update restic-exporter repository
+  ansible.builtin.git:
+    repo: "{{ restic_exporter_repo_url }}"
+    dest: "{{ restic_exporter_project_dir }}"
+    version: "{{ restic_exporter_ref or 'HEAD' }}"
+    force: false
+  register: _restic_exporter_clone
+
+- name: Create Python virtual environment
+  ansible.builtin.command:
+    cmd: python3 -m venv {{ restic_exporter_project_dir }}/.venv
+    creates: "{{ restic_exporter_project_dir }}/.venv/bin/python"
+
+- name: Install Python dependencies from pyproject.toml
+  ansible.builtin.shell: |
+    set -euo pipefail
+    {{ restic_exporter_project_dir }}/.venv/bin/python -m pip install --upgrade pip
+    deps=$({{ restic_exporter_project_dir }}/.venv/bin/python -c "
+    import tomllib
+    with open('pyproject.toml', 'rb') as f:
+        data = tomllib.load(f)
+    for d in data.get('project', {}).get('dependencies', []):
+        print(d)
+    ")
+    if [ -n "$deps" ]; then
+      echo "$deps" | xargs {{ restic_exporter_project_dir }}/.venv/bin/python -m pip install
+    fi
+  args:
+    chdir: "{{ restic_exporter_project_dir }}"
+    executable: /bin/bash
+  when: _restic_exporter_clone.changed
+  notify: Restart restic-exporter
+
+- name: Ensure project directory is world-readable
+  ansible.builtin.command:
+    cmd: chmod -R a+rX {{ restic_exporter_project_dir }}
+  changed_when: false

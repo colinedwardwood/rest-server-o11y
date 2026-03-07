@@ -1,0 +1,50 @@
+---
+- name: Create restic-exporter system group
+  ansible.builtin.group:
+    name: "{{ restic_exporter_group }}"
+    system: true
+
+- name: Create restic-exporter system user
+  ansible.builtin.user:
+    name: "{{ restic_exporter_user }}"
+    group: "{{ restic_exporter_group }}"
+    system: true
+    home: "/var/lib/restic-exporter"
+    create_home: true
+    shell: "/usr/sbin/nologin"
+
+- name: Ensure config directory exists
+  ansible.builtin.file:
+    path: "{{ restic_exporter_config_dir }}"
+    state: directory
+    owner: root
+    group: "{{ restic_exporter_group }}"
+    mode: "0750"
+
+- name: Deploy restic-exporter environment file
+  ansible.builtin.template:
+    src: restic-exporter.env.j2
+    dest: "{{ restic_exporter_env_file }}"
+    owner: root
+    group: "{{ restic_exporter_group }}"
+    mode: "0640"
+  no_log: true
+  notify: Restart restic-exporter
+
+- name: Deploy restic-exporter wrapper script
+  ansible.builtin.template:
+    src: restic-exporter-run.sh.j2
+    dest: /usr/local/bin/restic-exporter-run
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart restic-exporter
+
+- name: Deploy restic-exporter systemd unit
+  ansible.builtin.template:
+    src: restic-exporter.service.j2
+    dest: /etc/systemd/system/restic-exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart restic-exporter

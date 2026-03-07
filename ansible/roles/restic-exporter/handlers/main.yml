@@ -1,0 +1,6 @@
+---
+- name: Restart restic-exporter
+  ansible.builtin.systemd:
+    name: restic-exporter
+    state: restarted
+    daemon_reload: true

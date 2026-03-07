@@ -1,0 +1,16 @@
+---
+# Restic Exporter
+# Installs the Prometheus exporter for monitoring restic repositories.
+#
+# Prerequisites:
+#   - rest-server running with at least one initialized repo
+#   - Vault secrets configured for vault_restic_password
+#
+# Usage:
+#   ansible-playbook ansible/playbooks/restic-exporter.yml -l backup-pi -K
+
+- name: Install and configure restic-exporter
+  hosts: all
+  become: true
+  roles:
+    - restic-exporter
