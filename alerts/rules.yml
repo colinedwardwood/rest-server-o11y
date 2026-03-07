@@ -1,0 +1,136 @@
+# Alerting rules for the backup server stack.
+#
+# Compatible with Grafana Cloud Mimir ruler. Upload with:
+#
+#   mimirtool rules load alerts/rules.yml \
+#     --address=https://prometheus-us-central1.grafana.net \
+#     --id=<your-prom-username> \
+#     --key=<your-api-key>
+#
+# Or paste into Grafana Cloud → Alerts → Alert rules → New alert rule
+# using the "Cortex/Loki managed" option.
+
+namespace: rest-server
+
+groups:
+
+  # ---------------------------------------------------------------------------
+  # Backup drive capacity
+  # ---------------------------------------------------------------------------
+  - name: backup-drive
+    interval: 5m
+    rules:
+      - alert: BackupDriveSpaceCritical
+        expr: >
+          (node_filesystem_avail_bytes{mountpoint="/backups"}
+           / node_filesystem_size_bytes{mountpoint="/backups"}) * 100 < 10
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backup drive critically low on space"
+          description: >
+            {{ $labels.mountpoint }} on {{ $labels.instance }} has
+            {{ $value | printf "%.1f" }}% free. Backups will fail when
+            the drive fills up.
+
+      - alert: BackupDriveSpaceWarning
+        expr: >
+          (node_filesystem_avail_bytes{mountpoint="/backups"}
+           / node_filesystem_size_bytes{mountpoint="/backups"}) * 100 < 20
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backup drive running low on space"
+          description: >
+            {{ $labels.mountpoint }} on {{ $labels.instance }} has
+            {{ $value | printf "%.1f" }}% free. Consider pruning old
+            snapshots or expanding storage.
+
+  # ---------------------------------------------------------------------------
+  # Backup freshness
+  # ---------------------------------------------------------------------------
+  - name: backup-freshness
+    interval: 15m
+    rules:
+      - alert: BackupStale
+        expr: (time() - restic_snapshots_group_latest_timestamp) > 90000
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No recent backup from {{ $labels.client_hostname }}"
+          description: >
+            Last backup for {{ $labels.client_hostname }}
+            ({{ $labels.paths }}) was {{ $value | humanizeDuration }} ago.
+            Expected at least once every 24 hours.
+
+      - alert: BackupStaleCritical
+        expr: (time() - restic_snapshots_group_latest_timestamp) > 172800
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backup seriously overdue from {{ $labels.client_hostname }}"
+          description: >
+            Last backup for {{ $labels.client_hostname }}
+            ({{ $labels.paths }}) was {{ $value | humanizeDuration }} ago.
+            This is past the 48-hour critical threshold.
+
+  # ---------------------------------------------------------------------------
+  # Service availability
+  # ---------------------------------------------------------------------------
+  - name: backup-services
+    interval: 1m
+    rules:
+      - alert: RestServerDown
+        expr: up{job="custom/rest_server"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "REST server is down on {{ $labels.instance }}"
+          description: >
+            rest-server has been unreachable for over 5 minutes.
+            Backup clients cannot write new data.
+
+      - alert: ResticExporterDown
+        expr: up{job="custom/restic_exporter"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Restic exporter is down on {{ $labels.instance }}"
+          description: >
+            restic-exporter has been unreachable for over 10 minutes.
+            Backup monitoring metrics are stale.
+
+  # ---------------------------------------------------------------------------
+  # Repository health
+  # ---------------------------------------------------------------------------
+  - name: backup-integrity
+    interval: 30m
+    rules:
+      - alert: ResticCheckFailed
+        expr: restic_check_success == 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Restic repository check failed on {{ $labels.instance }}"
+          description: >
+            restic check is reporting failure. The repository may have
+            integrity issues. Run `restic check` manually to investigate.
+
+      - alert: ResticSnapshotCountDrop
+        expr: >
+          delta(restic_snapshots_total[1d]) < -5
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unexpected snapshot count drop on {{ $labels.instance }}"
+          description: >
+            Snapshot count dropped by {{ $value | printf "%.0f" }} in the
+            last 24 hours. This could indicate accidental pruning.
