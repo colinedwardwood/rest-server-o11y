@@ -1,0 +1,48 @@
+[Unit]
+Description=Prometheus exporter for Restic repositories
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# Run as a dedicated, unprivileged user.
+User=restic-exporter
+Group=restic-exporter
+
+# Configuration (repository, password, optional flags) lives here:
+EnvironmentFile=-/etc/restic-exporter/restic-exporter.env
+
+# A place for cache/state if the exporter/restic wants it.
+StateDirectory=restic-exporter
+WorkingDirectory=/var/lib/restic-exporter
+Environment=HOME=/var/lib/restic-exporter
+
+# Run via wrapper (preferred: venv python; fallback: `uv run`).
+# The project checkout path is configured via RESTIC_EXPORTER_PROJECT_DIR in the env file.
+ExecStart=/usr/local/bin/restic-exporter-run
+
+Restart=on-failure
+RestartSec=2
+
+# Reasonable hardening; relax if your exporter needs more access.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RemoveIPC=true
+SystemCallArchitectures=native
+
+# Allow writing state/cache only.
+ReadWritePaths=/var/lib/restic-exporter
+
+[Install]
+WantedBy=multi-user.target
+
