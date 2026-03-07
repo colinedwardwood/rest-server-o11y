@@ -1,0 +1,77 @@
+// =============================================================================
+// restserver.alloy — Restic REST server and repository monitoring
+//
+// Enabled by adding "restserver" to enabled_modules in /etc/alloy/alloy.modules.
+//
+// Scrapes two Prometheus endpoints:
+//   1. rest-server built-in metrics (HTTP request counts, durations)
+//   2. restic-exporter metrics (snapshot count, last backup time, repo size)
+//
+// The node_exporter (linux.alloy) already collects filesystem metrics for
+// drive space monitoring — no additional config needed for that.
+//
+// Prerequisites:
+//   - rest-server running with --prometheus --prometheus-no-auth
+//   - ngosang/restic-exporter running and exposing metrics
+//
+// Required environment variables:
+//   GCLOUD_PROM_ENDPOINT    — Grafana Cloud Prometheus remote_write URL
+//   GCLOUD_PROM_USERNAME    — Grafana Cloud Prometheus username
+//   GCLOUD_RW_API_KEY       — Grafana Cloud read/write API key
+// =============================================================================
+
+declare "restserver" {
+  argument "rest_server_port" {
+    optional = true
+    default  = "8000"
+    comment  = "Port where rest-server is listening (with --prometheus enabled)."
+  }
+
+  argument "exporter_port" {
+    optional = true
+    default  = "8001"
+    comment  = "Port where restic-exporter is listening."
+  }
+
+  // ---------------------------------------------------------------------------
+  // rest-server built-in Prometheus metrics (HTTP request stats)
+  // ---------------------------------------------------------------------------
+
+  prometheus.scrape "rest_server" {
+    targets = [{
+      __address__ = join(["localhost:", argument.rest_server_port.value]),
+      instance    = constants.hostname,
+      job         = "custom/rest_server",
+    }]
+    metrics_path = "/metrics"
+    forward_to   = [prometheus.remote_write.metrics_service.receiver]
+  }
+
+  // ---------------------------------------------------------------------------
+  // restic-exporter metrics (snapshot count, last backup time, repo size, etc.)
+  // ---------------------------------------------------------------------------
+
+  prometheus.scrape "restic_exporter" {
+    targets = [{
+      __address__ = join(["localhost:", argument.exporter_port.value]),
+      instance    = constants.hostname,
+      job         = "custom/restic_exporter",
+    }]
+    forward_to = [prometheus.remote_write.metrics_service.receiver]
+  }
+
+  // ---------------------------------------------------------------------------
+  // Prometheus remote_write endpoint
+  // ---------------------------------------------------------------------------
+
+  prometheus.remote_write "metrics_service" {
+    endpoint {
+      url = sys.env("GCLOUD_PROM_ENDPOINT")
+
+      basic_auth {
+        username = sys.env("GCLOUD_PROM_USERNAME")
+        password = sys.env("GCLOUD_RW_API_KEY")
+      }
+    }
+  }
+}
