@@ -1,5 +1,16 @@
 # Alerting rules for the backup server stack.
 #
+# STALE (2026-09-03): the backup-freshness / repo-health rules below query
+# metrics from the retired ngosang/restic-exporter
+# (restic_snapshots_group_latest_timestamp, restic_check_success,
+# up{job="custom/restic_exporter"} semantics, restic_locks_total). The live
+# metrics are now restic_last_snapshot_timestamp{repo} /
+# restic_last_snapshot_files{repo} / restic_scrape_success{repo} from the
+# restic-snapshot-metrics textfile collector. The alerts that actually run
+# in Grafana Cloud (folder "storage-backup", group "Backup Infrastructure")
+# were hand-created against the current names and are NOT generated from
+# this file. Needs a rewrite to become the source of truth again.
+#
 # Compatible with Grafana Cloud Mimir ruler. Upload with:
 #
 #   mimirtool rules load alerts/rules.yml \

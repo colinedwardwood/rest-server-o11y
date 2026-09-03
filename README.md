@@ -1,14 +1,35 @@
 # rest-server-o11y
 
-Observability stack for monitoring a restic rest-server: Alloy module, Grafana dashboards, alert rules, SLOs, and the restic-exporter Prometheus exporter.
+Observability stack for monitoring a restic rest-server: Alloy module, Grafana dashboards, alert rules, SLOs.
+
+> **2026-09-03 — metric source changed.** `ngosang/restic-exporter` (:8001)
+> could not serve the rest-server's `--private-repos` layout and errored
+> every scrape. It is retired. Snapshot metrics now come from
+> `restic-snapshot-metrics`, a per-repo Prometheus **textfile collector**
+> deployed by `ansible` `roles/rest-server` (`tasks/prune.yml`). Alloy still
+> labels them `job="custom/restic_exporter"`, so the live Grafana "Backup
+> Infrastructure" alerts keep working, but the **metric names differ** from
+> what parts of this repo still document:
+>
+> | old (dead) | current |
+> |---|---|
+> | `restic_snapshots_group_latest_timestamp` | `restic_last_snapshot_timestamp{repo}` |
+> | `restic_stats_total_size_bytes` | `restic_last_snapshot_size_bytes{repo}` |
+> | `restic_stats_total_file_count` | `restic_last_snapshot_files{repo}` |
+> | `restic_check_success` | *(not collected — `restic check` isn't run per scrape)* |
+> | `up{job="custom/restic_exporter"}` | still valid (the textfile scrape target) |
+>
+> `alerts/rules.yml` and `dashboards/*.json` still reference the old names
+> and need a pass. The live Grafana rules (created by hand in folder
+> `storage-backup`) already use the current names.
 
 ## What gets monitored
 
 | Signal | Source | Key metrics |
 |--------|--------|-------------|
 | Drive space | node_exporter (linux.alloy) | `node_filesystem_avail_bytes`, `node_filesystem_size_bytes` |
-| Backup snapshots | restic-exporter (:8001) | `restic_snapshots_total`, `restic_snapshots_group_latest_timestamp` |
-| Backup size | restic-exporter (:8001) | `restic_stats_total_size_bytes`, `restic_stats_total_file_count` |
+| Backup snapshots | restic-snapshot-metrics (textfile) | `restic_snapshots_total{repo}`, `restic_last_snapshot_timestamp{repo}` |
+| Backup size / files | restic-snapshot-metrics (textfile) | `restic_last_snapshot_size_bytes{repo}`, `restic_last_snapshot_files{repo}` |
 | REST HTTP traffic | rest-server (:8000/metrics) | HTTP request counts, durations, Go runtime |
 | Repo health | restic-exporter (:8001) | `restic_check_success` |
 | Service health | systemd journal (linux.alloy) | `rest-server.service`, `restic-exporter.service` logs |
