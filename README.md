@@ -15,7 +15,7 @@ Observability stack for monitoring a restic rest-server: Alloy module, Grafana d
 > |---|---|
 > | `restic_snapshots_group_latest_timestamp` | `restic_last_snapshot_timestamp{repo}` |
 > | `restic_stats_total_size_bytes` | `restic_last_snapshot_size_bytes{repo}` |
-> | `restic_stats_total_file_count` | `restic_last_snapshot_files{repo}` |
+> | `restic_stats_total_file_count` | `restic_last_snapshot_files{repo}` (largest of the newest snapshot per path set, so a one-file DB dump or hourly DB-only snapshot does not mask the files location) |
 > | `restic_check_success` | *(not collected — `restic check` isn't run per scrape)* |
 > | `up{job="custom/restic_exporter"}` | still valid (the textfile scrape target) |
 >
